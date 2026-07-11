@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseNews AI - TikTok de Noticias Virales</title>
+  
+  <!-- Estilos de Tailwind CSS desde internet -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Transpilador de React para que funcione directo en el navegador -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100">
+  <div id="root"></div>
+
+  <!-- Mapa de importación para que el navegador reconozca React y los iconos de Lucide -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.344.0"
+      }
+    }
+  </script>
+
+  <!-- Código React interactivo de PulseNews AI -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useRef } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { 
+      Flame, 
+      Share2, 
+      Bookmark, 
+      Heart, 
+      Volume2, 
+      VolumeX,
+      MessageCircle, 
+      Sparkles, 
+      RefreshCw, 
+      TrendingUp, 
+      Sliders, 
+      Smartphone, 
+      Play, 
+      Pause,
+      ChevronDown,
+      ChevronUp,
+      Search,
+      Check,
+      User,
+      Clock,
+      Eye,
+      Info
+    } from 'lucide-react';
+
+    const INITIAL_NEWS = [
+      {
+        id: 'news-1',
+        title: '¡Histórico! Nave espacial comercial logra aterrizaje perfecto en Marte',
+        summary: 'La misión privada de exploración espacial "Ares Prime" ha hecho historia hoy al posarse de forma exitosa sobre suelo marciano, enviando las primeras imágenes de alta resolución en tiempo real.',
+        content: 'En un hito sin precedentes para la astronáutica privada, la nave espacial Ares Prime ha completado hoy su descenso autónomo en la superficie de Marte, específicamente en el cráter Jezero. El éxito de esta operación redefine por completo los límites de la colonización espacial y el rol de las corporaciones privadas en el cosmos.',
+        category: 'Ciencia',
+        tags: ['Marte', 'Espacio', 'Aeroespacial', 'Futuro'],
+        likes: 12450,
+        commentsCount: 840,
+        shares: 3120,
+        viralScore: 9.8,
+        imgUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=800&q=80',
+        readTime: 45
+      },
+      {
+        id: 'news-2',
+        title: 'Se presenta el primer procesador cuántico de consumo para ordenadores portátiles',
+        summary: 'Una startup tecnológica de Silicon Valley revoluciona el mercado al anunciar un chip de computación cuántica integrado en placas base convencionales.',
+        content: 'La era de la computación cuántica de bolsillo ha comenzado. QuantumTech presentó hoy su procesador "Q-Lite 1", que promete velocidades de cálculo criptográfico y procesamiento de IA hasta 100 veces mayores que los procesadores convencionales actuales, consumiendo apenas 15 vatios.',
+        category: 'Tecnología',
+        tags: ['Computación Cuántica', 'Gadgets', 'Hardware', 'IA'],
+        likes: 24300,
+        commentsCount: 1950,
+        shares: 5800,
+        viralScore: 9.9,
+        imgUrl: 'https://images.unsplash.com/photo-1639322537228-f710d846310a?auto=format&fit=crop&w=800&q=80',
+        readTime: 35
+      }
+    ];
+
+    const MOCK_COMMENTS = {
+      'news-1': [
+        { user: '@astroloco99', text: '¡Increíble! Pensar que de niño veía esto en películas de ciencia ficción y ahora es real.', likes: 342 },
+        { user: '@sofia_space', text: '¿Cuánto tardarán en enviar los primeros análisis del agua?', likes: 189 }
+      ],
+      'news-2': [
+        { user: '@hardware_geek', text: '¡Adiós a la refrigeración líquida clásica! Esto va a cambiar todo.', likes: 520 }
+      ]
+    };
+
+    function App() {
+      const [newsFeed, setNewsFeed] = useState(INITIAL_NEWS);
+      const [currentIdx, setCurrentIdx] = useState(0);
+      
+      const [userInterests, setUserInterests] = useState({
+        'Tecnología': 1.0,
+        'Ciencia': 1.0,
+        'Deportes': 1.0,
+        'Entretenimiento': 1.0,
+        'Política': 1.0,
+        'Economía': 1.0
+      });
+
+      const [sessionStats, setSessionStats] = useState({
+        totalLikes: 0,
+        totalSkips: 0,
+        totalDeepReads: 0,
+        totalTimeSpent: 0,
+        totalSaved: 0
+      });
+
+      const [newsInteractions, setNewsInteractions] = useState({});
+      const [comments, setComments] = useState(MOCK_COMMENTS);
+      const [showComments, setShowComments] = useState(false);
+      const [newCommentText, setNewCommentText] = useState('');
+      
+      const [isMobileFrame, setIsMobileFrame] = useState(true);
+      const [activeTab, setActiveTab] = useState('para-ti');
+      const [deepDiveMode, setDeepDiveMode] = useState(false);
+      
+      const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+      const [audioLoading, setAudioLoading] = useState(false);
+      const [audioUrl, setAudioUrl] = useState(null);
+      const audioRef = useRef(null);
+
+      const [searchQuery, setSearchQuery] = useState('');
+      const [isGeneratingNews, setIsGeneratingNews] = useState(false);
+      const [aiLog, setAiLog] = useState([]);
+      const [toast, setToast] = useState(null);
+
+      const activeStartTimeRef = useRef(Date.now());
+      const touchStartY = useRef(0);
+      const touchEndY = useRef(0);
+
+      const showToast = (message) => {
+        setToast(message);
+        setTimeout(() => setToast(null), 3000);
+      };
+
+      const addAiLog = (message, type = 'info') => {
+        setAiLog(prev => [{ time: new Date().toLocaleTimeString(), message, type }, ...prev].slice(0, 30));
+      };
+
+      const processInteraction = (newsId, action, value = null) => {
+        const article = newsFeed.find(n => n.id === newsId);
+        if (!article) return;
+
+        const category = article.category;
+        let adjustment = 0;
+        const updatedInterests = { ...userInterests };
+
+        switch (action) {
+          case 'like':
+            const liked = value;
+            adjustment = liked ? 0.5 : -0.4;
+            setSessionStats(prev => ({ ...prev, totalLikes: prev.totalLikes + (liked ? 1 : -1) }));
+            addAiLog(`Usuario dio ${liked ? 'LIKE' : 'QUITÓ LIKE'} a [${category}]. Ajustando peso +${adjustment}`, 'success');
+            break;
+          case 'save':
+            const saved = value;
+            adjustment = saved ? 0.6 : -0.3;
+            setSessionStats(prev => ({ ...prev, totalSaved: prev.totalSaved + (saved ? 1 : -1) }));
+            addAiLog(`Usuario ${saved ? 'GUARDÓ' : 'DESGUARDÓ'} en [${category}]. Ajustando peso +${adjustment}`, 'success');
+            break;
+          case 'share':
+            adjustment = 0.7;
+            addAiLog(`Usuario COMPARTIÓ noticia de [${category}]. Peso +${adjustment}`, 'success');
+            break;
+          case 'dwell_time':
+            const secondsSpent = value;
+            setSessionStats(prev => ({ ...prev, totalTimeSpent: prev.totalTimeSpent + secondsSpent }));
+            
+            if (secondsSpent < 2.5) {
+              adjustment = -0.35;
+              setSessionStats(prev => ({ ...prev, totalSkips: prev.totalSkips + 1 }));
+              addAiLog(`Usuario saltó [${category}] muy rápido (${secondsSpent.toFixed(1)}s). Peso -0.35`, 'warning');
+            } else if (secondsSpent > 12) {
+              adjustment = 0.45;
+              setSessionStats(prev => ({ ...prev, totalDeepReads: prev.totalDeepReads + 1 }));
+              addAiLog(`Lectura profunda en [${category}] (${secondsSpent.toFixed(1)}s). Peso +0.45`, 'info');
+            } else if (secondsSpent > 5) {
+              adjustment = 0.2;
+              addAiLog(`Usuario interesado en [${category}] por ${secondsSpent.toFixed(1)}s. Peso +0.2`, 'info');
+            }
+            break;
+        }
+
+        if (adjustment !== 0) {
+          updatedInterests[category] = Math.max(0.1, Math.min(3.0, updatedInterests[category] + adjustment));
+          setUserInterests(updatedInterests);
+        }
+      };
+
+      const getRankedFeed = (rawFeed, interests) => {
+        return [...rawFeed].sort((a, b) => {
+          const scoreA = (interests[a.category] || 1.0) * a.viralScore + (Math.random() * 1.5);
+          const scoreB = (interests[b.category] || 1.0) * b.viralScore + (Math.random() * 1.5);
+          return scoreB - scoreA;
+        });
+      };
+
+      useEffect(() => {
+        activeStartTimeRef.current = Date.now();
+        if (isPlayingAudio) {
+          if (audioRef.current) audioRef.current.pause();
+          setIsPlayingAudio(false);
+        }
+        return () => {
+          const timeSpent = (Date.now() - activeStartTimeRef.current) / 1000;
+          if (newsFeed[currentIdx]) {
+            processInteraction(newsFeed[currentIdx].id, 'dwell_time', timeSpent);
+          }
+        };
+      }, [currentIdx, newsFeed]);
+
+      useEffect(() => {
+        if (activeTab === 'para-ti') {
+          const ranked = getRankedFeed(newsFeed, userInterests);
+          setNewsFeed(ranked);
+          setCurrentIdx(0);
+        } else if (activeTab === 'tendencias') {
+          const sortedByViral = [...newsFeed].sort((a, b) => b.viralScore - a.viralScore);
+          setNewsFeed(sortedByViral);
+          setCurrentIdx(0);
+        }
+      }, [activeTab]);
+
+      const handleTouchStart = (e) => { touchStartY.current = e.touches[0].clientY; };
+      const handleTouchEnd = (e) => {
+        touchEndY.current = e.changedTouches[0].clientY;
+        const swipeDistance = touchStartY.current - touchEndY.current;
+        if (swipeDistance > 50) handleNextNews();
+        else if (swipeDistance < -50) handlePrevNews();
+      };
+
+      const handleNextNews = () => {
+        if (currentIdx < newsFeed.length - 1) {
+          const elapsed = (Date.now() - activeStartTimeRef.current) / 1000;
+          processInteraction(newsFeed[currentIdx].id, 'dwell_time', elapsed);
+          setCurrentIdx(prev => prev + 1);
+          setDeepDiveMode(false);
+          setShowComments(false);
+        } else {
+          showToast("¡Has llegado al final del feed! Rastrea nuevos temas con IA.");
+        }
+      };
+
+      const handlePrevNews = () => {
+        if (currentIdx > 0) {
+          const elapsed = (Date.now() - activeStartTimeRef.current) / 1000;
+          processInteraction(newsFeed[currentIdx].id, 'dwell_time', elapsed);
+          setCurrentIdx(prev => prev - 1);
+          setDeepDiveMode(false);
+          setShowComments(false);
+        }
+      };
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); handleNextNews(); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); handlePrevNews(); }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [currentIdx, newsFeed]);
+
+      const fetchTrendingRealNews = async () => {
+        setIsGeneratingNews(true);
+        addAiLog("Iniciando búsqueda web segura con Gemini...", "info");
+        
+        const query = searchQuery.trim() || "noticias virales de las últimas 24 horas";
+        try {
+          const response = await fetch(`/api/get-news?query=${encodeURIComponent(query)}`);
+          if (!response.ok) throw new Error("Error en el túnel seguro del backend.");
+
+          const result = await response.json();
+          const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (generatedText) {
+            const jsonString = generatedText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsedNews = JSON.parse(jsonString);
+
+            if (Array.isArray(parsedNews) && parsedNews.length > 0) {
+              const enrichedNews = parsedNews.map((item, idx) => {
+                let backupImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
+                if (item.category === 'Tecnología') backupImg = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80";
+                if (item.category === 'Deportes') backupImg = "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=800&q=80";
+                if (item.category === 'Ciencia') backupImg = "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&q=80";
+
+                return {
+                  ...item,
+                  id: `real-${Date.now()}-${idx}`,
+                  imgUrl: backupImg,
+                  readTime: Math.max(30, Math.ceil(item.content.split(' ').length * 0.4))
+                };
+              });
+
+              setNewsFeed(prev => [...enrichedNews, ...prev]);
+              setCurrentIdx(0);
+              showToast(`¡Se han cargado ${enrichedNews.length} noticias reales!`);
+              addAiLog(`Búsqueda exitosa. Noticias reales redactadas.`, "success");
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          addAiLog(`Error de conexión: ${err.message}.`, "warning");
+          showToast("Revisa que hayas configurado tu GEMINI_API_KEY en Vercel.");
+        } finally {
+          setIsGeneratingNews(false);
+        }
+      };
+
+      const toggleSpeechSynthesis = async (text) => {
+        if (isPlayingAudio) {
+          if (audioRef.current) audioRef.current.pause();
+          setIsPlayingAudio(false);
+          return;
+        }
+
+        setAudioLoading(true);
+        addAiLog(`Generando locución con Gemini Zephyr...`, "info");
+
+        try {
+          const response = await fetch(`/api/get-audio?text=${encodeURIComponent(text)}`);
+          if (!response.ok) throw new Error("Fallo en llamada de audio.");
+
+          const result = await response.json();
+          const part = result?.candidates?.[0]?.content?.parts?.[0];
+          const audioData = part?.inlineData?.data;
+          const mimeType = part?.inlineData?.mimeType;
+
+          if (audioData && mimeType && mimeType.startsWith("audio/")) {
+            const rawBytes = window.atob(audioData);
+            const arrayBuffer = new ArrayBuffer(rawBytes.length);
+            const uint8Array = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < rawBytes.length; i++) {
+              uint8Array[i] = rawBytes.charCodeAt(i);
+            }
+
+            const pcm16 = new Int16Array(arrayBuffer);
+            const wavBlob = pcmToWav(pcm16, 24000);
+            const audioBlobUrl = URL.createObjectURL(wavBlob);
+
+            setAudioUrl(audioBlobUrl);
+            
+            if (audioRef.current) {
+              audioRef.current.src = audioBlobUrl;
+              audioRef.current.play().then(() => {
+                setIsPlayingAudio(true);
+                addAiLog("Reproduciendo audio con éxito.", "success");
+              });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          addAiLog("Usando voz nativa del navegador como alternativa.", "warning");
+          
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'es-ES';
+          utterance.rate = 1.1;
+          utterance.onend = () => setIsPlayingAudio(false);
+          
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          setIsPlayingAudio(true);
+        } finally {
+          setAudioLoading(false);
+        }
+      };
+
+      const pcmToWav = (samples, sampleRate) => {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        const writeString = (v, offset, str) => {
+          for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i));
+        };
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+          view.setInt16(offset, samples[i], true);
+        }
+
+        return new Blob([buffer], { type: 'audio/wav' });
+      };
+
+      const handleLikeNews = (id) => {
+        const currentStatus = newsInteractions[id]?.liked || false;
+        const newStatus = !currentStatus;
+        setNewsInteractions(prev => ({ ...prev, [id]: { ...prev[id], liked: newStatus } }));
+        setNewsFeed(prev => prev.map(news => news.id === id ? { ...news, likes: news.likes + (newStatus ? 1 : -1) } : news));
+        processInteraction(id, 'like', newStatus);
+      };
+
+      const handleSaveNews = (id) => {
+        const currentStatus = newsInteractions[id]?.saved || false;
+        const newStatus = !currentStatus;
+        setNewsInteractions(prev => ({ ...prev, [id]: { ...prev[id], saved: newStatus } }));
+        processInteraction(id, 'save', newStatus);
+        showToast(newStatus ? "Guardado en tu biblioteca" : "Eliminado de guardados");
+      };
+
+      const handleShareNews = (id) => {
+        processInteraction(id, 'share');
+        navigator.clipboard.writeText(`¡Mira esto!: "${newsFeed[currentIdx].title}" - Leído en PulseNews`);
+        showToast("¡Enlace copiado al portapapeles!");
+      };
+
+      const handleAddComment = (e) => {
+        e.preventDefault();
+        if (!newCommentText.trim()) return;
+
+        const activeId = newsFeed[currentIdx].id;
+        const userComment = { user: '@tú_usuario', text: newCommentText.trim(), likes: 1 };
+        setComments(prev => ({ ...prev, [activeId]: [userComment, ...(prev[activeId] || [])] }));
+        setNewsFeed(prev => prev.map(news => news.id === activeId ? { ...news, commentsCount: news.commentsCount + 1 } : news));
+        setNewCommentText('');
+      };
+
+      const activeNews = newsFeed[currentIdx];
+      const isLiked = newsInteractions[activeNews?.id]?.liked || false;
+      const isSaved = newsInteractions[activeNews?.id]?.saved || false;
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col md:flex-row overflow-x-hidden">
+          <audio ref={audioRef} onEnded={() => setIsPlayingAudio(false)} className="hidden" />
+
+          {/* Panel Lateral izquierdo */}
+          <div className="w-full md:w-5/12 lg:w-4/12 bg-slate-900/60 border-b md:border-b-0 md:border-r border-slate-800 p-4 lg:p-6 flex flex-col gap-6 overflow-y-auto max-h-screen">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-2 bg-gradient-to-tr from-rose-500 to-amber-500 rounded-lg text-white">
+                  <Flame className="w-6 h-6 animate-pulse" />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight">PulseNews <span className="text-rose-500">AI</span></h1>
+              </div>
+              <p className="text-xs text-slate-400">El feed de noticias estilo TikTok con IA de recomendación.</p>
+            </div>
+
+            {/* Gráfico de intereses del usuario */}
+            <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-rose-500" />
+                  <h2 className="text-sm font-semibold">Tus Intereses de Lector</h2>
+                </div>
+                <span className="text-[10px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full font-mono animate-pulse">LIVE</span>
+              </div>
+
+              <div className="space-y-3">
+                {Object.entries(userInterests).map(([cat, weight]) => {
+                  const percentage = Math.min(100, (weight / 3.0) * 100);
+                  let color = "bg-rose-500";
+                  if (cat === "Tecnología") color = "bg-blue-500";
+                  if (cat === "Ciencia") color = "bg-purple-500";
+                  
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-300 font-medium">{cat}</span>
+                        <span className="font-mono text-slate-400">{weight.toFixed(2)}x</span>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${percentage}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Buscador inteligente */}
+            <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-semibold">Rastrear Temas de Última Hora</h2>
+              </div>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Ej: Elecciones, espacio, fútbol..." 
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <button 
+                  onClick={fetchTrendingRealNews}
+                  disabled={isGeneratingNews}
+                  className="px-3 py-2 bg-gradient-to-r from-rose-600 to-amber-600 rounded-xl text-xs font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isGeneratingNews ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Buscar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Terminal de la IA */}
+            <div className="flex-1 min-h-[160px] bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col gap-2 overflow-hidden">
+              <span className="text-xs font-semibold text-slate-300">Terminal de Decisiones de la IA</span>
+              <div className="flex-1 overflow-y-auto font-mono text-[9px] bg-slate-900 rounded-xl p-2.5 border border-slate-800 text-slate-400 space-y-1">
+                {aiLog.length === 0 ? "Interactúa con las noticias de la derecha para ver logs..." : aiLog.map((log, idx) => (
+                  <div key={idx} className="border-b border-slate-800/30 pb-1">
+                    <span className="text-slate-600 mr-1">[{log.time}]</span> {log.message}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Visualizador de Celular */}
+          <div className="flex-1 flex flex-col items-center justify-center p-4 lg:p-8 relative">
+            <div className="absolute top-4 right-4 z-20 flex gap-2">
+              <button onClick={() => setIsMobileFrame(true)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${isMobileFrame ? 'bg-rose-500 border-rose-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>Celular</button>
+              <button onClick={() => setIsMobileFrame(false)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${!isMobileFrame ? 'bg-rose-500 border-rose-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>Pantalla Completa</button>
+            </div>
+
+            {toast && (
+              <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-rose-500 text-white text-xs px-4 py-2 rounded-full border border-rose-400 shadow-xl">{toast}</div>
+            )}
+
+            {/* Celular Frame */}
+            <div className={`transition-all duration-300 ${isMobileFrame ? 'w-full max-w-[370px] h-[720px] rounded-[36px] border-[10px] border-slate-800 shadow-2xl bg-slate-950' : 'w-full max-w-4xl h-[720px] rounded-2xl border border-slate-800 shadow-2xl bg-slate-950'} overflow-hidden flex flex-col relative`}>
+              {activeNews ? (
+                <div className="flex-1 flex flex-col relative overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                  
+                  {/* Fondo */}
+                  <div className="absolute inset-0 z-0">
+                    <img src={activeNews.imgUrl} className="w-full h-full object-cover brightness-[0.2]" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-transparent to-slate-950/90" />
+                  </div>
+
+                  {/* Botones de Navegación Manual */}
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-20">
+                    <button onClick={handlePrevNews} disabled={currentIdx === 0} className="p-2 bg-slate-900/80 text-white rounded-full disabled:opacity-30">▲</button>
+                    <button onClick={handleNextNews} className="p-2 bg-slate-900/80 text-white rounded-full">▼</button>
+                  </div>
+
+                  {/* Botones Sociales */}
+                  <div className="absolute right-4 bottom-24 flex flex-col items-center gap-4 z-20">
+                    <button onClick={() => handleLikeNews(activeNews.id)} className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLiked ? 'bg-rose-600' : 'bg-slate-900/80'}`}><Heart className="w-5 h-5" /></div>
+                      <span className="text-[10px] mt-1">{activeNews.likes.toLocaleString()}</span>
+                    </button>
+                    <button onClick={() => setShowComments(true)} className="flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full bg-slate-900/80 flex items-center justify-center"><MessageCircle className="w-5 h-5" /></div>
+                      <span className="text-[10px] mt-1">{activeNews.commentsCount}</span>
+                    </button>
+                    <button onClick={() => toggleSpeechSynthesis(activeNews.summary)} className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isPlayingAudio ? 'bg-amber-500 text-slate-950 animate-pulse' : 'bg-slate-900/80'}`}>
+                        {audioLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Volume2 className="w-5 h-5" />}
+                      </div>
+                      <span className="text-[10px] mt-1">{isPlayingAudio ? 'Escuchando' : 'Escuchar'}</span>
+                    </button>
+                    <button onClick={() => handleSaveNews(activeNews.id)} className="flex flex-col items-center">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSaved ? 'bg-amber-600' : 'bg-slate-900/80'}`}><Bookmark className="w-5 h-5" /></div>
+                      <span className="text-[10px] mt-1">Guardar</span>
+                    </button>
+                    <button onClick={() => handleShareNews(activeNews.id)} className="flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full bg-slate-900/80 flex items-center justify-center"><Share2 className="w-5 h-5" /></div>
+                      <span className="text-[10px] mt-1">Compartir</span>
+                    </button>
+                  </div>
+
+                  {/* Datos Noticia */}
+                  <div className="mt-auto p-4 pb-8 z-10 max-w-[85%] flex flex-col gap-2">
+                    <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-bold uppercase w-fit">{activeNews.category}</span>
+                    <h2 className="text-lg font-bold leading-tight">{activeNews.title}</h2>
+                    <p className="text-xs text-slate-300 leading-normal">{deepDiveMode ? activeNews.content : activeNews.summary}</p>
+                    <button onClick={() => setDeepDiveMode(!deepDiveMode)} className="text-rose-400 text-xs font-bold w-fit mt-1">
+                      {deepDiveMode ? "Ver menos" : "Leer noticia completa con IA..."}
+                    </button>
+                  </div>
+
+                  {/* Panel de Comentarios */}
+                  {showComments && (
+                    <div className="absolute inset-x-0 bottom-0 top-[35%] bg-slate-900/95 p-4 z-30 rounded-t-2xl flex flex-col border-t border-slate-800">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                        <span className="text-xs font-bold">Comentarios</span>
+                        <button onClick={() => setShowComments(false)} className="text-slate-400 text-xs">✕</button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto py-2 space-y-2">
+                        {(comments[activeNews.id] || []).map((cmt, idx) => (
+                          <div key={idx} className="text-xs border-b border-slate-800/40 pb-2">
+                            <div className="font-semibold text-slate-300">{cmt.user}</div>
+                            <p className="text-slate-400">{cmt.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <form onSubmit={handleAddComment} className="flex gap-2">
+                        <input type="text" placeholder="Opina algo..." className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs" value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} />
+                        <button type="submit" className="bg-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold">Enviar</button>
+                      </form>
+                    </div>
+                  )}
+
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center"><RefreshCw className="w-10 h-10 animate-spin text-slate-600" /></div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = createRoot(container);
+    root.render(<App />);
+  </script>
+</body>
+</html>
